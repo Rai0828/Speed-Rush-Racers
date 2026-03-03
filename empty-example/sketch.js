@@ -9,6 +9,8 @@ let stage = 1;
 let stageMessageTimer = 0;
 let themeSound;
 let playerImg;
+let nameInput, playButton;
+let playerName = "";
 let carImgs = [];
 let stageGoals = [0, 500, 1000, 2000]; // meters
 
@@ -24,24 +26,71 @@ function preload() {
 }
 
 function setup() {
-  createCanvas(600, 800);
+  let cnv = createCanvas(600, 800);
+  cnv.parent(document.body); // attach canvas to body
+  cnv.style("display", "block");
+  cnv.style("margin", "0 auto"); // center horizontally
   player = new Player();
   rectMode(CENTER);
   textAlign(CENTER, CENTER);
-}
 
+  // Store a reference to the canvas
+  canvasEl = cnv.elt; // .elt gives the raw HTML element
+}
 function draw() {
   background(50);
 
   if (gameState === "start") {
     drawStartScreen();
+  } else if (gameState === "enterName") {
+    drawEnterNameScreen();
   } else if (gameState === "playing") {
     playGame();
   } else if (gameState === "gameOver") {
     displayGameOver();
+  } else if (gameState === "showLeaderboard") {
+    drawLeaderboardScreen();
   }
 }
 
+function drawEnterNameScreen() {
+  background(0);
+  fill(255);
+  textSize(36);
+  textAlign(CENTER, CENTER);
+  text("Enter Your Name", width / 2, height / 2 - 50);
+
+  // Create input and button only once
+  if (!nameInput) {
+    nameInput = createInput();
+    nameInput.size(200);
+    nameInput.position(
+      canvasEl.offsetLeft + width / 2 - 100,
+      canvasEl.offsetTop + height / 2,
+    );
+
+    playButton = createButton("PLAY");
+    playButton.size(80, 40);
+    playButton.position(
+      canvasEl.offsetLeft + width / 2 - 40,
+      canvasEl.offsetTop + height / 2 + 60,
+    );
+
+    playButton.mousePressed(() => {
+      playerName = nameInput.value().trim();
+      if (playerName === "") playerName = "Player"; // default name if empty
+      nameInput.remove();
+      playButton.remove();
+      nameInput = null;
+      playButton = null;
+
+      gameState = "playing";
+
+      // Start theme music
+      if (!themeSound.isPlaying()) themeSound.loop();
+    });
+  }
+}
 // ---------------- START SCREEN ----------------
 function drawStartScreen() {
   background(0);
@@ -62,28 +111,67 @@ function drawStartScreen() {
   fill(255);
   textSize(32);
   text("START", width / 2, height / 2 + 50);
+
+  // Leaderboard button
+  fill(0, 0, 200);
+  rect(width / 2, height / 2 + 130, 200, 60, 10);
+  fill(255);
+  textSize(32);
+  text("LEADERBOARD", width / 2, height / 2 + 130);
 }
 
 // Detect click for the START button
 function mousePressed() {
   if (gameState === "start") {
-    // Check if mouse is inside the start button
+    // START button
     if (
       mouseX > width / 2 - 100 &&
       mouseX < width / 2 + 100 &&
       mouseY > height / 2 + 20 &&
       mouseY < height / 2 + 80
     ) {
-      gameState = "playing";
+      gameState = "enterName"; // move to name input screen
+      return; // stop further checks
+    }
 
-      // Play the theme sound if not already playing
-      if (!themeSound.isPlaying()) {
-        themeSound.loop(); // loop the music
-      }
+    // LEADERBOARD button
+    if (
+      mouseX > width / 2 - 100 &&
+      mouseX < width / 2 + 100 &&
+      mouseY > height / 2 + 100 &&
+      mouseY < height / 2 + 160
+    ) {
+      gameState = "showLeaderboard";
+      return;
+    }
+  }
+
+  if (gameState === "gameOver") {
+    // RESTART button
+    if (
+      mouseX > width / 2 - 100 &&
+      mouseX < width / 2 + 100 &&
+      mouseY > height / 2 + 70 &&
+      mouseY < height / 2 + 130
+    ) {
+      restartGame();
+      return;
+    }
+  }
+
+  if (gameState === "showLeaderboard") {
+    // Back button on leaderboard
+    if (
+      mouseX > width / 2 - 75 &&
+      mouseX < width / 2 + 75 &&
+      mouseY > height - 105 &&
+      mouseY < height - 55
+    ) {
+      gameState = "start";
+      return;
     }
   }
 }
-
 // ---------------- GAMEPLAY ----------------
 function playGame() {
   timer += 1 / 60;
@@ -192,25 +280,65 @@ function displayGameOver() {
   if (themeSound.isPlaying()) {
     themeSound.stop();
   }
+
   fill(255, 0, 0);
   textSize(40);
   textAlign(CENTER);
-  text("GAME OVER", width / 2, height / 2);
+  text("GAME OVER", width / 2, height / 2 - 50);
 
   textSize(20);
   // Show distance reached
-  text(
-    "Distance Reached: " + floor(distance) + " m",
-    width / 2,
-    height / 2 + 40,
-  );
+  text("Distance Reached: " + floor(distance) + " m", width / 2, height / 2);
 
-  // Optional: you can also still show time if you want
-  text("Time Survived: " + timer.toFixed(1) + " s", width / 2, height / 2 + 70);
+  // Show time survived
+  text("Time Survived: " + timer.toFixed(1) + " s", width / 2, height / 2 + 30);
 
-  text("Refresh to Restart", width / 2, height / 2 + 100);
+  // ---------------- RESTART BUTTON ----------------
+  let buttonY = height / 2 + 100; // move it lower to avoid overlapping
+
+  // Hover effect
+  if (
+    mouseX > width / 2 - 100 &&
+    mouseX < width / 2 + 100 &&
+    mouseY > buttonY - 30 &&
+    mouseY < buttonY + 30
+  ) {
+    fill(0, 255, 0); // brighter on hover
+  } else {
+    fill(0, 200, 0);
+  }
+
+  rect(width / 2, buttonY, 200, 60, 10);
+
+  fill(255);
+  textSize(32);
+  text("RESTART", width / 2, buttonY);
 }
+function restartGame() {
+  gameState = "playing";
+  gameOver = false;
+  timer = 0;
+  distance = 0;
+  stage = 1;
+  stageMessageTimer = 0;
+  obstacles = [];
+  roadSpeed = 4;
+  spawnRate = 90;
 
+  player.x = width / 2;
+  player.y = height - 100;
+
+  if (nameInput) {
+    nameInput.remove();
+    nameInput = null;
+  }
+  if (playButton) {
+    playButton.remove();
+    playButton = null;
+  }
+
+  if (!themeSound.isPlaying()) themeSound.loop();
+}
 // ---------------- STAGE ----------------
 function updateStage() {
   if (stage < stageGoals.length - 1 && distance >= stageGoals[stage]) {
@@ -257,6 +385,10 @@ class Player {
   display() {
     imageMode(CENTER);
     image(playerImg, this.x, this.y, this.w, this.h);
+    stroke(255, 0, 0);
+    noFill();
+    rect(this.x, this.y, this.w * 0.4, this.h * 0.4);
+    noStroke();
   }
 }
 
@@ -278,15 +410,25 @@ class Obstacle {
 
   display() {
     imageMode(CENTER);
-    image(this.img, this.x + this.w / 2, this.y + this.h / 2, this.w, this.h);
+    image(this.img, this.x, this.y, this.w, this.h); // remove +this.w/2, +this.h/2
+
+    // Optional: draw hitbox for debugging
+    stroke(255, 0, 0);
+    noFill();
+    rect(this.x, this.y, this.w * 0.6, this.h * 0.6); // match hits()
+    noStroke();
   }
 
   hits(player) {
+    let playerHitW = player.w * 0.6;
+    let playerHitH = player.h * 0.6;
+
+    let obstacleHitW = this.w * 0.6;
+    let obstacleHitH = this.h * 0.6;
+
     return (
-      this.x < player.x + player.w &&
-      this.x + this.w > player.x &&
-      this.y < player.y + player.h &&
-      this.y + this.h > player.y
+      abs(this.x - player.x) < (playerHitW + obstacleHitW) / 2 &&
+      abs(this.y - player.y) < (playerHitH + obstacleHitH) / 2
     );
   }
 }
